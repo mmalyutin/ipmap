@@ -1,0 +1,103 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html"
+      xmlns:a4j="http://richfaces.org/a4j">
+    <h:head>
+        <title>MapApp</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <script src="api.js" type="text/javascript"></script>
+        <script src="jquery.js" type="text/javascript"></script>
+    </h:head>
+    <h:body>
+        <div id="map" style=" width: 96%; height: 400px; margin: 2% auto; border: grey; border-style: solid; border-width: 1px;"></div>
+        <div id="info" style=" width: 96%; margin: 2% auto; border: grey; border-style: solid; border-width: 1px;">
+            <p><span style="margin-left: 10px;">ID: #{mapBean.js.id}, IP: #{mapBean.js.ip}, Latitude: #{mapBean.js.lat}, Longitude: #{mapBean.js.lon}</span></p>
+            <p><span style="margin-left: 10px;">Country: [#{mapBean.js.country}], Subdivision: [#{mapBean.js.subdivision}], City: [#{mapBean.js.city}], Postal: [#{mapBean.js.postal}]</span></p>
+            <h:panelGroup>
+                <h:form>
+                    <a4j:poll id="poll" interval="10000" enabled="true" render="users" />
+                    <h:outputText style="margin-left: 10px;" id="users" value="Current users: [#{mapBean.current}]"/>
+                </h:form>
+            </h:panelGroup>
+        </div>
+        <script>
+            ymaps.ready(init);
+            function init() {
+                var myMap = new ymaps.Map('map', {
+                    center: [#{mapBean.js.lat}, #{mapBean.js.lon}],
+                    zoom: 5,
+                    controls: ['zoomControl', 'fullscreenControl']
+                }, {
+                    searchControlProvider: 'yandex#search',
+                    suppressMapOpenBlock: true
+                }),
+                        objectManager = new ymaps.ObjectManager({
+                            clusterize: true,
+                        });
+
+                myMap.geoObjects.add(objectManager);
+                myGeoObject = new ymaps.GeoObject({
+                    geometry: {
+                        type: "Point",
+                        coordinates: [#{mapBean.js.lat}, #{mapBean.js.lon}]
+                    },
+                    properties: {
+                        iconContent: '#{mapBean.mesto}',
+                    }
+                }, {
+                    preset: 'islands#blackStretchyIcon'
+                });
+
+
+                $.ajax({
+                    url: "/ipmap//data.json"
+                }).done(function (data) {
+                    objectManager.add(data);
+                });
+                myMap.geoObjects.add(myGeoObject);
+
+                setInterval(
+                        function () {
+                            $.ajax({
+                                url: "/ipmap/data.json"
+                            }).done(function (data) {
+                                myMap.geoObjects.remove(myGeoObject);
+                                objectManager.removeAll();
+                                objectManager.add(data);
+                            });
+                        }
+                , 10000);
+
+                function onObjectEvent(e) {
+                    var objectId = e.get('objectId');
+                    if (e.get('type') == 'mouseenter') {
+                        objectManager.objects.setObjectOptions(objectId, {
+                            preset: 'islands#yellowIcon'
+                        });
+                    } else {
+                        objectManager.objects.setObjectOptions(objectId, {
+                            preset: 'islands#blueIcon'
+                        });
+                    }
+                }
+
+                function onClusterEvent(e) {
+                    var objectId = e.get('objectId');
+                    if (e.get('type') == 'mouseenter') {
+                        objectManager.clusters.setClusterOptions(objectId, {
+                            preset: 'islands#yellowClusterIcons'
+                        });
+                    } else {
+                        objectManager.clusters.setClusterOptions(objectId, {
+                            preset: 'islands#blueClusterIcons'
+                        });
+                    }
+                }
+                objectManager.objects.events.add(['mouseenter', 'mouseleave'], onObjectEvent);
+                objectManager.clusters.events.add(['mouseenter', 'mouseleave'], onClusterEvent);
+            }
+        </script>
+    </h:body>
+</html>
+
